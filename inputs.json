@@ -1,6 +1,10 @@
 {
-  "s2-product": {
-    "type": "Data",
-    "url": "https://vision.odata.gael.fr/odata/v1/Products(d5bca157-4a82-4cc9-87e0-b640f8c03242)/$value"
+  "user": {
+    "type": "string",
+    "value": "johnsmith"
+  },
+  "password": {
+    "type": "string",
+    "value": "XXXXXX"
   }
 }

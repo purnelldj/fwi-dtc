@@ -3,4 +3,4 @@ tqdm
 xarray
 matplotlib
 cartopy
-h5netcdf
+h5

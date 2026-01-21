@@ -1,0 +1,33 @@
+nodes:
+  - id: user
+    ref: inputs.user
+
+  - id: password
+    ref: inputs.password
+
+  - id: fwi
+    ref: models.fwi-calculator
+
+  - id: plot
+    ref: outputs.fwi-plot
+  
+
+edges:
+
+  - from:
+      id: user
+    to:
+      id: fwi
+      port: user
+
+  - from:
+      id: password
+    to:
+      id: fwi
+      port: password
+
+  - from:
+      id: fwi-calculator
+    to:
+      id: plot
+

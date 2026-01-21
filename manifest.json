@@ -1,103 +1,87 @@
 {
-  "name": "tutorial-ndvi-dependencies-djpurnell",
-  "description": "This sample DeltaTwin component computes the NDVI from a Sentinel-2 L2A product, extracting the NIR and Red bands thanks to other deltatwin components used as dependencies. The generated output is a colored plot in PNG format.",
+  "name": "fwi-calc-local",
+  "description": "FWI calculator v0",
   "license": {
     "name": "LGPLv3",
     "url": "https://www.gdeltnu.org/licenses/gpl-3.0.txt",
     "description": "",
     "copyrights": [
       {
-        "years": [2025],
-        "company": "GAEL Systems"
+        "years": [2026],
+        "company": "Serco"
       }
     ]
   },
-  "owner": "GAEL Systems",
-
-  "resources": {
-    "nir-band-name": {
-      "type": "string",
-      "value": "B8A",
-      "description": "Name of the NIR band (60m resolution) in Sentinel-2 L2A product"
-    },
-    "red-band-name": {
-      "type": "string",
-      "value": "B04",
-      "description": "Name of the Red band (60m resolution) in Sentinel-2 L2A product"
-    }
-  },
+  "owner": "Serco",
 
   "inputs": {
-    "s2-product": {
-      "type": "Data",
-      "description": "URL of Sentinel-2 Level 2A product (example: https://vision.odata.gael.fr/odata/v1/Products(d5bca157-4a82-4cc9-87e0-b640f8c03242)/$value)",
-      "value": "https://vision.odata.gael.fr/odata/v1/Products(d5bca157-4a82-4cc9-87e0-b640f8c03242)/$value"
+    "user": {
+      "type": "string",
+      "description": "DestinE Service Platform Credentials."
+    },
+    "password": {
+      "type": "string",
+      "description": "DestinE Service Platform Credentials."
     }
   },
 
   "outputs": {
-    "ndvi-plot": {
+    "fwi-plot": {
       "type": "Data",
-      "description": "NDVI plot with colormap (PNG file)"
+      "description": "FWI plot with colormap (PNG file)"
     }
   },
 
   "models": {
-    "colormap-plotter": {
-      "path": "models/colormap-plotter",
+    "fwi-calculator": {
+      "path": "models/fwi_calculator",
       "type": "python",
       "parameters": {
         "pythonVersion": "3.11",
-        "aptRequirements": [
-          {
-            "name": "libexpat1"
-          },
-          {
-            "name": "libexpat1-dev"
-          }
-        ],
+        "aptRequirements": [],
         "pipRequirements": [
           {
-            "name": "rasterio",
-            "version": "1.4.3"
+            "name": "destinepyauth",
+            "version": "1.1.0"
           },
           {
-            "name": "numpy",
-            "version": "2.3.0"
+            "name": "tqdm"
           },
           {
-            "name": "matplotlib",
-            "version": "3.10.3"
+            "name": "xarray"
+          },
+          {
+            "name": "matplotlib"
+          },
+          {
+            "name": "cartopy"
+          },
+          {
+            "name": "h5netcdf"
           }
         ],
         "hardwareRequirements": {
           "cpu": "2000m",
           "ram": "4Gi"
         },
-        "command": "python colormap-plotter.py $(inputs.grayscale-tiff)"
+        "command": "python fwi.py $(inputs.user) '$(inputs.password)'"
       },
       "inputs": {
-        "grayscale-tiff": {
-          "type": "Data"
+        "user": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
         }
       },
       "outputs": {
-        "color-plot": {
+        "fwi-plot": {
           "type": "Data",
-          "glob": "*plot.png"
+          "glob": "*.png"
         }
       }
     }
   },
 
-  "dependencies": {
-    "band-extractor": {
-      "id": "band-extractor",
-      "version": "1.0.0"
-    },
-    "index-calculator": {
-      "id": "index-calculation",
-      "version": "1.0.0"
-    }
-  }
+  "dependencies": {}
 }

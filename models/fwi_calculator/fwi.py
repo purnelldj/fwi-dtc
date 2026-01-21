@@ -1,5 +1,5 @@
+import numpy as np
 import requests
-import os
 import zipfile
 import datetime
 from destinepyauth import get_token
@@ -8,8 +8,9 @@ import xarray as xr
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
-import glob
 from pathlib import Path
+import os
+import sys
 
 HDA_STAC_ENDPOINT="https://hda.data.destination-earth.eu/stac/v2"
 COLLECTION_ID = "EO.EUM.DAT.MSG.LSA-FRM"
@@ -21,7 +22,7 @@ def _get_auth_headers():
     return {"Authorization": f"Bearer {access_token}"}
 
 
-def _download_product(product: dict, auth_headers: dict) -> None:
+def _download_product(product: dict, auth_headers: dict, out_path: Path) -> None:
     print(f"\n=== Downloading: {product['id']} ===")
 
     # Get download URL from assets
@@ -30,7 +31,7 @@ def _download_product(product: dict, auth_headers: dict) -> None:
         raise
 
     download_url = product['assets']['downloadLink']['href']
-    filename = f"{product['id']}.zip"
+    filename = out_path / f"{product['id']}.zip"
 
     print(f"Downloading full product to: {filename}")
     print(f"URL: {download_url}")
@@ -41,7 +42,7 @@ def _download_product(product: dict, auth_headers: dict) -> None:
 
     total_size = int(response.headers.get('content-length', 0))
 
-    with tqdm(total=total_size, unit='B', unit_scale=True, desc=filename) as progress_bar:
+    with tqdm(total=total_size, unit='B', unit_scale=True, desc=str(filename)) as progress_bar:
         with open(filename, 'wb') as f:
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
@@ -72,20 +73,20 @@ def _print_search_results(response: requests.Response) -> None:
         raise
 
 
-def _extract_zip(zip_filename: str) -> str:
+def _extract_zip(zip_filename: str, out_path: Path) -> str:
     """Extract zip file and return the main HDF5 file path"""
     print(f"\n=== Extracting {zip_filename} ===")
     
-    extract_dir = Path(zip_filename).stem
-    os.makedirs(extract_dir, exist_ok=True)
+    extract_dir = out_path / Path(zip_filename).stem
+    extract_dir.mkdir(exist_ok=True, parents=True)
     
     with zipfile.ZipFile(zip_filename, 'r') as zip_ref:
         zip_ref.extractall(path=extract_dir)
     
     # Find HDF5 file
-    h5_files = glob.glob(os.path.join(extract_dir, '*.h5')) + \
-               glob.glob(os.path.join(extract_dir, '*.hdf5')) + \
-               glob.glob(os.path.join(extract_dir, 'S-LSA*'))
+    h5_files = list(extract_dir.glob('*.h5')) + \
+               list(extract_dir.glob('*.hdf5')) + \
+               list(extract_dir.glob('S-LSA*'))
     
     if not h5_files:
         raise FileNotFoundError(f"No HDF5 file found in {extract_dir}")
@@ -95,99 +96,50 @@ def _extract_zip(zip_filename: str) -> str:
     return h5_file
 
 
-def _process_and_plot_fwi(h5_file: str, bbox: list) -> None:
+def _process_and_plot_fwi(h5_file: str, bbox: list, out_path: Path) -> None:
     """Read HDF5, extract FWI, crop to bbox, and plot with country borders"""
-    print(f"\n=== Processing FWI data ===")
-    
-    # Read the dataset
-    ds = xr.open_dataset(h5_file, engine='h5netcdf')
-    print(f"Dataset variables: {list(ds.data_vars)}")
-    
-    # Extract FWI variable (adjust variable name if needed)
-    fwi_var_names = ['FWI', 'fwi', 'FireWeatherIndex']
-    fwi = None
-    
-    for var_name in fwi_var_names:
-        if var_name in ds:
-            fwi = ds[var_name]
-            print(f"Found FWI variable: {var_name}")
-            break
-    
-    if fwi is None:
-        print(f"Available variables: {list(ds.data_vars)}")
-        # Try to use the first variable as fallback
-        if len(ds.data_vars) > 0:
-            fwi = ds[list(ds.data_vars)[0]]
-            print(f"Using first variable as FWI: {list(ds.data_vars)[0]}")
-        else:
-            raise ValueError("No suitable FWI variable found")
-    
-    # Crop to bbox [west, south, east, north]
-    west, south, east, north = bbox
-    
-    # Get coordinate names (try common variations)
-    lon_names = ['lon', 'longitude', 'x']
-    lat_names = ['lat', 'latitude', 'y']
-    
-    lon_dim = next((name for name in lon_names if name in fwi.coords), None)
-    lat_dim = next((name for name in lat_names if name in fwi.coords), None)
-    
-    if lon_dim and lat_dim:
-        fwi_cropped = fwi.sel(**{lon_dim: slice(west, east), lat_dim: slice(south, north)})
-    else:
-        print(f"Warning: Could not find lon/lat coordinates. Available coords: {list(fwi.coords)}")
-        fwi_cropped = fwi
-    
     # Create plot
-    output_file = h5_file.replace('.h5', '_FWI.png').replace('.hdf5', '_FWI.png')
-    if not output_file.endswith('.png'):
-        output_file = f"{h5_file}_FWI.png"
-    
-    print(f"Creating plot: {output_file}")
-    
-    _ = plt.figure(figsize=(12, 8))
-    ax = plt.axes(projection=ccrs.PlateCarree())
-    
-    # Plot FWI data
-    if lon_dim and lat_dim:
-        _ = fwi_cropped.plot(ax=ax, transform=ccrs.PlateCarree(), 
-                              cmap='YlOrRd', cbar_kwargs={'label': 'Fire Weather Index'})
-    else:
-        _ = fwi_cropped.plot(ax=ax, cmap='YlOrRd', cbar_kwargs={'label': 'Fire Weather Index'})
-    
-    # Add country borders and coastlines
-    ax.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
-    ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
-    ax.add_feature(cfeature.LAND, facecolor='lightgray', alpha=0.3)
-    
-    # Set extent to bbox
-    ax.set_extent([west, east, south, north], crs=ccrs.PlateCarree())
-    
-    # Add gridlines
-    gl = ax.gridlines(draw_labels=True, linewidth=0.5, alpha=0.5, linestyle='--')
-    gl.top_labels = False
-    gl.right_labels = False
-    
-    plt.title(f'Fire Weather Index\n{os.path.basename(h5_file)}')
+    base_name = f"{Path(h5_file).name}_FWI.png"
+    output_file = out_path / base_name
+
+    # read and prepare dataset
+    ds = xr.open_dataset(h5_file)
+    fwi = xr.where(ds.FWI == -8000, np.nan, ds.FWI)
+    fwi = xr.DataArray(np.flipud(fwi), dims=fwi.dims)
+    fwi = xr.where(fwi < 0, np.nan, fwi)
+
+    # plot
+    fwi.plot(vmin = 0,cbar_kwargs = {'label':''})
+    plt.title('Fire Weather Index')
     plt.tight_layout()
     plt.savefig(output_file, dpi=300, bbox_inches='tight')
     print(f"Plot saved: {output_file}")
     plt.close()
-    
-    ds.close()
 
 
-def main():
+def main(user: str, password: str):
+
+    os.environ['DESPAUTH_USER'] = user
+    os.environ['DESPAUTH_PASSWORD'] = password
+
     # search past 24 hours
-    # dt_now = datetime.datetime.now(datetime.timezone.utc)
-    dt_now = datetime.datetime(2025, 8, 5)
+    dt_now = datetime.datetime.now(datetime.timezone.utc)
+    # dt_now = datetime.datetime(2025, 8, 5)
     dt_yesterday = dt_now - datetime.timedelta(days=1)
     dt_now_str = dt_now.strftime(DT_FORMAT)
     dt_yesterday_str = dt_yesterday.strftime(DT_FORMAT)
     datetime_range = f"{dt_yesterday_str}/{dt_now_str}"
 
+    # Create timestamped output directory
+    out_parent = Path(".data")
+    run_timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H%M%S")
+    out_path = out_parent / run_timestamp
+    out_path.mkdir(exist_ok=True, parents=True)
+    print(f"Output directory: {out_path}")
+
     # Define Area of Interest (bbox: [west, south, east, north])
-    bbox = [2.10, 42.65, 3.25, 43.35]
+    # bbox = [2.10, 42.65, 3.25, 43.35]  # Corbieres massif
+    bbox = [14, 40, 18, 42]  # southern Italy
 
     auth_headers = _get_auth_headers()
 
@@ -207,18 +159,22 @@ def main():
         raise
 
     for product in results['features']:
-        zip_file = _download_product(product, auth_headers)
+        zip_file = _download_product(product, auth_headers, out_path)
         
         # Extract zip file
-        h5_file = _extract_zip(zip_file)
+        h5_file = _extract_zip(zip_file, out_path)
         
-        # file = "/home/dp/deltatwin/extremesdt_fwi_usecase/S-LSA_-HDF5_LSASAF_MSG_FRM-F024_Euro_202601201200/S-LSA_-HDF5_LSASAF_MSG_FRM-F024_Euro_202601201200"
-
         # Process and plot FWI
-        _process_and_plot_fwi(h5_file, bbox)
+        _process_and_plot_fwi(h5_file, bbox, out_path)
         
         break
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) != 3:
+        print("Usage: python fwi.py <username> <password>")
+        sys.exit(1)
+    
+    username = sys.argv[1]
+    password = sys.argv[2]
+    main(username, password)

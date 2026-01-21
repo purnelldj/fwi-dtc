@@ -52,3 +52,30 @@ Cobières Massif is a region in France that [recently suffered from wild fire](h
 ```
 bbox = [2.10, 42.65, 3.25, 43.35]
 ```
+not relevant here because the data is with 'phony' dimensions
+
+## Creating a Delta Twin component locally
+
+### inputs.json
+
+All we need as inputs are DESP auth credentials
+
+```
+{
+  "user": {
+    "type": "string",
+    "value": "johnsmith"
+  },
+  "password": {
+    "type": "string",
+    "value": "XXXXXX"
+  }
+}
+```
+### manifest.json
+
+guide [here](https://deltatwin.destine.eu/docs/tutorials/basic/tutorial_basic_step3)
+
+- Fill in ownership details and name at the top
+- No resources - these are more for connecting inputs (not explained well in docs)
+- 
