@@ -1,2 +1,6 @@
-polytope
 destinepyauth
+tqdm
+xarray
+matplotlib
+cartopy
+h5netcdf
