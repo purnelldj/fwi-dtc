@@ -4,7 +4,7 @@
     "value": "johnsmith"
   },
   "password": {
-    "type": "string",
+    "type": "secret",
     "value": "XXXXXX"
   }
 }

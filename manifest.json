@@ -1,6 +1,6 @@
 {
-  "name": "fwi-calc-local",
-  "description": "FWI calculator v0",
+  "name": "fwi-calc",
+  "description": "FWI calculator",
   "license": {
     "name": "LGPLv3",
     "url": "https://www.gdeltnu.org/licenses/gpl-3.0.txt",
@@ -20,7 +20,7 @@
       "description": "DestinE Service Platform Credentials."
     },
     "password": {
-      "type": "string",
+      "type": "secret",
       "description": "DestinE Service Platform Credentials."
     }
   },
@@ -57,6 +57,9 @@
             "name": "cartopy"
           },
           {
+            "name": "h5"
+          },
+          {
             "name": "h5netcdf"
           }
         ],
@@ -64,14 +67,14 @@
           "cpu": "2000m",
           "ram": "4Gi"
         },
-        "command": "python fwi.py $(inputs.user) '$(inputs.password)'"
+        "command": "python fwi.py $(inputs.user) $(inputs.password)"
       },
       "inputs": {
         "user": {
           "type": "string"
         },
         "password": {
-          "type": "string"
+          "type": "secret"
         }
       },
       "outputs": {
