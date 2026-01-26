@@ -119,7 +119,7 @@ def _process_and_plot_fwi(h5_file: str, bbox: list, out_path: Path) -> None:
     plt.close()
 
 
-def main(user: str, password: str):
+def main(user: str, password: str, out_path: Path = Path("./.delta")):
 
     os.environ['DESPAUTH_USER'] = user
     os.environ['DESPAUTH_PASSWORD'] = password
@@ -133,9 +133,7 @@ def main(user: str, password: str):
     datetime_range = f"{dt_yesterday_str}/{dt_now_str}"
 
     # Create timestamped output directory
-    out_parent = Path(".data")
-    run_timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H%M%S")
-    out_path = out_parent / run_timestamp
+    # run_timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H%M%S")
     out_path.mkdir(exist_ok=True, parents=True)
     log.info(f"Output directory: {out_path}")
 
