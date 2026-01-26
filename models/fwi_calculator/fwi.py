@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import requests
 import zipfile
@@ -6,8 +7,6 @@ from destinepyauth import get_token
 from tqdm import tqdm
 import xarray as xr
 import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
 from pathlib import Path
 import os
 import sys
@@ -16,6 +15,9 @@ HDA_STAC_ENDPOINT="https://hda.data.destination-earth.eu/stac/v2"
 COLLECTION_ID = "EO.EUM.DAT.MSG.LSA-FRM"
 DT_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
+logging.getLogger(__name__).addHandler(logging.NullHandler())
+log = logging.getLogger("FWI")
+log.setLevel(logging.INFO)
 
 def _get_auth_headers():
     access_token = get_token("hda").access_token
@@ -23,18 +25,18 @@ def _get_auth_headers():
 
 
 def _download_product(product: dict, auth_headers: dict, out_path: Path) -> None:
-    print(f"\n=== Downloading: {product['id']} ===")
+    log.info(f"\n=== Downloading: {product['id']} ===")
 
     # Get download URL from assets
     if 'downloadLink' not in product.get('assets', {}):
-        print("No downloadLink asset found")
+        log.info("No downloadLink asset found")
         raise
 
     download_url = product['assets']['downloadLink']['href']
     filename = out_path / f"{product['id']}.zip"
 
-    print(f"Downloading full product to: {filename}")
-    print(f"URL: {download_url}")
+    log.info(f"Downloading full product to: {filename}")
+    log.info(f"URL: {download_url}")
 
     # Stream download with progress bar
     response = requests.get(download_url, headers=auth_headers, stream=True)
@@ -49,33 +51,33 @@ def _download_product(product: dict, auth_headers: dict, out_path: Path) -> None
                     f.write(chunk)
                     progress_bar.update(len(chunk))
 
-    print(f"\nDownload complete: {filename}")
+    log.info(f"\nDownload complete: {filename}")
     return filename
 
 
 def _print_search_results(response: requests.Response) -> None:
     # print result info
-    print(f"Status Code: {response.status_code}")
+    log.info(f"Status Code: {response.status_code}")
     if response.status_code == 200:
         results = response.json()
-        print(f"\nFound {len(results.get('features', []))} products")
+        log.info(f"\nFound {len(results.get('features', []))} products")
     
         # Display results
         for idx, feature in enumerate(results.get('features', [])):
-            print(f"\n--- Product {idx + 1} ---")
-            print(f"ID: {feature.get('id')}")
-            print(f"Datetime: {feature.get('properties', {}).get('datetime')}")
+            log.info(f"\n--- Product {idx + 1} ---")
+            log.info(f"ID: {feature.get('id')}")
+            log.info(f"Datetime: {feature.get('properties', {}).get('datetime')}")
             if 'bbox' in feature:
-                print(f"BBox: {feature.get('bbox')}")
-            print(f"Assets: {list(feature.get('assets', {}).keys())}")
+                log.info(f"BBox: {feature.get('bbox')}")
+            log.info(f"Assets: {list(feature.get('assets', {}).keys())}")
     else:
-        print(f"Error: {response.text}")
+        log.info(f"Error: {response.text}")
         raise
 
 
 def _extract_zip(zip_filename: str, out_path: Path) -> str:
     """Extract zip file and return the main HDF5 file path"""
-    print(f"\n=== Extracting {zip_filename} ===")
+    log.info(f"\n=== Extracting {zip_filename} ===")
     
     extract_dir = out_path / Path(zip_filename).stem
     extract_dir.mkdir(exist_ok=True, parents=True)
@@ -92,7 +94,7 @@ def _extract_zip(zip_filename: str, out_path: Path) -> str:
         raise FileNotFoundError(f"No HDF5 file found in {extract_dir}")
     
     h5_file = h5_files[0]
-    print(f"Found data file: {h5_file}")
+    log.info(f"Found data file: {h5_file}")
     return h5_file
 
 
@@ -113,7 +115,7 @@ def _process_and_plot_fwi(h5_file: str, bbox: list, out_path: Path) -> None:
     plt.title('Fire Weather Index')
     plt.tight_layout()
     plt.savefig(output_file, dpi=300, bbox_inches='tight')
-    print(f"Plot saved: {output_file}")
+    log.info(f"Plot saved: {output_file}")
     plt.close()
 
 
@@ -135,7 +137,7 @@ def main(user: str, password: str):
     run_timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H%M%S")
     out_path = out_parent / run_timestamp
     out_path.mkdir(exist_ok=True, parents=True)
-    print(f"Output directory: {out_path}")
+    log.info(f"Output directory: {out_path}")
 
     # Define Area of Interest (bbox: [west, south, east, north])
     # bbox = [2.10, 42.65, 3.25, 43.35]  # Corbieres massif
@@ -155,7 +157,7 @@ def main(user: str, password: str):
 
     results = response.json()
     if len(results.get('features', [])) == 0:
-        print("No products found for the given criteria")
+        log.info("No products found for the given criteria")
         raise
 
     for product in results['features']:
@@ -171,10 +173,18 @@ def main(user: str, password: str):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
     if len(sys.argv) != 3:
-        print("Usage: python fwi.py <username> <password>")
+        log.info("Usage: python fwi.py <username> <password>")
         sys.exit(1)
     
     username = sys.argv[1]
     password = sys.argv[2]
-    main(username, password)
+    try:
+        main(username, password)
+    except Exception as e:
+        log.info(f"Failed to run fwi.py:\n {e}")
