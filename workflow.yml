@@ -27,7 +27,8 @@ edges:
       port: password
 
   - from:
-      id: fwi-calculator
+      id: fwi
+      port: fwi-plot
     to:
       id: plot
 
