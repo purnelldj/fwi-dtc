@@ -1,0 +1,87 @@
+{
+  "name": "fwi-calc-local",
+  "description": "FWI calculator v0",
+  "license": {
+    "name": "LGPLv3",
+    "url": "https://www.gdeltnu.org/licenses/gpl-3.0.txt",
+    "description": "",
+    "copyrights": [
+      {
+        "years": [2026],
+        "company": "Serco"
+      }
+    ]
+  },
+  "owner": "Serco",
+
+  "inputs": {
+    "user": {
+      "type": "string",
+      "description": "DestinE Service Platform Credentials."
+    },
+    "password": {
+      "type": "string",
+      "description": "DestinE Service Platform Credentials."
+    }
+  },
+
+  "outputs": {
+    "fwi-plot": {
+      "type": "Data",
+      "description": "FWI plot with colormap (PNG file)"
+    }
+  },
+
+  "models": {
+    "fwi-calculator": {
+      "path": "models/fwi_calculator",
+      "type": "python",
+      "parameters": {
+        "pythonVersion": "3.11",
+        "aptRequirements": [],
+        "pipRequirements": [
+          {
+            "name": "destinepyauth",
+            "version": "1.1.0"
+          },
+          {
+            "name": "tqdm"
+          },
+          {
+            "name": "xarray"
+          },
+          {
+            "name": "matplotlib"
+          },
+          {
+            "name": "cartopy"
+          },
+          {
+            "name": "h5"
+          }
+        ],
+        "hardwareRequirements": {
+          "cpu": "2000m",
+          "ram": "4Gi"
+        },
+        "command": "python fwi.py $(inputs.user) $(inputs.password)"
+      },
+      "inputs": {
+        "user": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        }
+      },
+      "outputs": {
+        "fwi-plot": {
+          "type": "Data",
+          "glob": "*.png"
+        }
+      }
+    }
+  },
+
+  "dependencies": {}
+}
