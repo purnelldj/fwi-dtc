@@ -67,8 +67,6 @@ def _print_search_results(response: requests.Response) -> None:
             log.info(f"\n--- Product {idx + 1} ---")
             log.info(f"ID: {feature.get('id')}")
             log.info(f"Datetime: {feature.get('properties', {}).get('datetime')}")
-            if 'bbox' in feature:
-                log.info(f"BBox: {feature.get('bbox')}")
             log.info(f"Assets: {list(feature.get('assets', {}).keys())}")
     else:
         log.info(f"Error: {response.text}")
@@ -98,11 +96,10 @@ def _extract_zip(zip_filename: str, out_path: Path) -> str:
     return h5_file
 
 
-def _process_and_plot_fwi(h5_file: str, bbox: list, out_path: Path) -> None:
-    """Read HDF5, extract FWI, crop to bbox, and plot with country borders"""
+def _process_and_plot_fwi(h5_file: Path, plot_index: int) -> None:
+    """Read HDF5, extract FWI and plot with country borders"""
     # Create plot
-    # base_name = f"{Path(h5_file).name}_FWI.png"
-    output_file = "fwi.png"
+    output_file = f"fwi{plot_index}.png"
 
     # read and prepare dataset
     ds = xr.open_dataset(h5_file)
@@ -112,7 +109,8 @@ def _process_and_plot_fwi(h5_file: str, bbox: list, out_path: Path) -> None:
 
     # plot
     fwi.plot(vmin = 0,cbar_kwargs = {'label':''})
-    plt.title('Fire Weather Index')
+    forecast_id = str(h5_file).split("_")[-3]
+    plt.title(f'Forecast {forecast_id}: Fire Weather Index')
     plt.tight_layout()
     plt.savefig(output_file, dpi=300, bbox_inches='tight')
     log.info(f"Plot saved: {output_file}")
@@ -126,20 +124,14 @@ def main(user: str, password: str, out_path: Path = Path("./.delta")):
 
     # search past 24 hours
     dt_now = datetime.datetime.now(datetime.timezone.utc)
-    # dt_now = datetime.datetime(2025, 8, 5)
     dt_yesterday = dt_now - datetime.timedelta(days=1)
     dt_now_str = dt_now.strftime(DT_FORMAT)
     dt_yesterday_str = dt_yesterday.strftime(DT_FORMAT)
     datetime_range = f"{dt_yesterday_str}/{dt_now_str}"
 
     # Create timestamped output directory
-    # run_timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H%M%S")
     out_path.mkdir(exist_ok=True, parents=True)
     log.info(f"Output directory: {out_path}")
-
-    # Define Area of Interest (bbox: [west, south, east, north])
-    # bbox = [2.10, 42.65, 3.25, 43.35]  # Corbieres massif
-    bbox = [14, 40, 18, 42]  # southern Italy
 
     auth_headers = _get_auth_headers()
 
@@ -147,7 +139,6 @@ def main(user: str, password: str, out_path: Path = Path("./.delta")):
     response = requests.post(HDA_STAC_ENDPOINT+"/search", headers=auth_headers, json={
         "collections": [COLLECTION_ID],
         "datetime": datetime_range,
-        "bbox": bbox,
         "limit": 10  # Limit number of results
     })
 
@@ -158,17 +149,19 @@ def main(user: str, password: str, out_path: Path = Path("./.delta")):
         log.info("No products found for the given criteria")
         raise
 
-    for product in results['features']:
+    if len(results.get('features', [])) != 5:
+        log.info("Expected 5 products for 5-day forecast")
+        raise
+
+    for i, product in enumerate(results['features']):
         zip_file = _download_product(product, auth_headers, out_path)
         
         # Extract zip file
         h5_file = _extract_zip(zip_file, out_path)
         
         # Process and plot FWI
-        _process_and_plot_fwi(h5_file, bbox, out_path)
+        _process_and_plot_fwi(h5_file, i)
         
-        break
-
 
 if __name__ == "__main__":
     logging.basicConfig(
