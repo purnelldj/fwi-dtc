@@ -1,5 +1,5 @@
 {
-  "name": "fwi-calc",
+  "name": "fwi-plotter",
   "description": "FWI calculator",
   "license": {
     "name": "LGPLv3",
@@ -20,7 +20,7 @@
       "description": "DestinE Service Platform Credentials."
     },
     "password": {
-      "type": "secret",
+      "type": "string",
       "description": "DestinE Service Platform Credentials."
     }
   },
@@ -74,13 +74,13 @@
           "type": "string"
         },
         "password": {
-          "type": "secret"
+          "type": "string"
         }
       },
       "outputs": {
         "fwi-plot": {
           "type": "Data",
-          "glob": "*.png"
+          "glob": "fwi.png"
         }
       }
     }

@@ -101,8 +101,8 @@ def _extract_zip(zip_filename: str, out_path: Path) -> str:
 def _process_and_plot_fwi(h5_file: str, bbox: list, out_path: Path) -> None:
     """Read HDF5, extract FWI, crop to bbox, and plot with country borders"""
     # Create plot
-    base_name = f"{Path(h5_file).name}_FWI.png"
-    output_file = out_path / base_name
+    # base_name = f"{Path(h5_file).name}_FWI.png"
+    output_file = "fwi.png"
 
     # read and prepare dataset
     ds = xr.open_dataset(h5_file)
