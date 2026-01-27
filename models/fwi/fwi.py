@@ -7,6 +7,7 @@ from destinepyauth import get_token
 from tqdm import tqdm
 import xarray as xr
 import matplotlib.pyplot as plt
+from matplotlib.colors import BoundaryNorm, ListedColormap
 from pathlib import Path
 import os
 import sys
@@ -101,16 +102,50 @@ def _process_and_plot_fwi(h5_file: Path, plot_index: int) -> None:
     # Create plot
     output_file = f"fwi{plot_index}.png"
 
+    # Discrete Risk classes (1..5): green, yellow, then darker reds
+    risk_colors = [
+        "#2ca25f",  # 1 Low (green)
+        "#ffeb3b",  # 2 Moderate (yellow)
+        "#fb6a4a",  # 3 High (light red)
+        "#de2d26",  # 4 Very High (red)
+        "#a50f15",  # 5 Extreme (dark red)
+    ]
+    risk_cmap = ListedColormap(risk_colors, name="risk_classes")
+    risk_bounds = np.array([0.5, 1.5, 2.5, 3.5, 4.5, 5.5])
+    risk_norm = BoundaryNorm(risk_bounds, risk_cmap.N)
+
     # read and prepare dataset
     ds = xr.open_dataset(h5_file)
     fwi = xr.where(ds.FWI == -8000, np.nan, ds.FWI)
     fwi = xr.DataArray(np.flipud(fwi), dims=fwi.dims)
     fwi = xr.where(fwi < 0, np.nan, fwi)
+    # risk
+    risk = xr.where(ds.Risk == -8000, np.nan, ds.Risk)
+    risk = xr.DataArray(np.flipud(risk), dims=risk.dims)
+    risk = xr.where(risk < 0, np.nan, risk)
 
     # plot
-    fwi.plot(vmin = 0,cbar_kwargs = {'label':''})
+    _, axes = plt.subplots(2, 1, figsize=(8, 10))
+
+    fwi.plot(ax=axes[0], vmin=0, cmap="Oranges", cbar_kwargs={'label': ''})
     forecast_id = str(h5_file).split("_")[-3]
-    plt.title(f'Forecast {forecast_id}: Fire Weather Index')
+    axes[0].set_title(f'Forecast {forecast_id}: Fire Weather Index')
+
+    risk_plot = risk.plot(
+        ax=axes[1],
+        cmap=risk_cmap,
+        norm=risk_norm,
+        cbar_kwargs={
+            'label': '',
+            'ticks': [1, 2, 3, 4, 5],
+            'boundaries': risk_bounds,
+            'spacing': 'proportional',
+            'drawedges': True,
+        },
+    )
+    risk_plot.colorbar.set_ticklabels(['Low', 'Moderate', 'High', 'Very High', 'Extreme'])
+    axes[1].set_title('Risk')
+
     plt.tight_layout()
     plt.savefig(output_file, dpi=300, bbox_inches='tight')
     log.info(f"Plot saved: {output_file}")
