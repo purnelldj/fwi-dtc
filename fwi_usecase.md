@@ -1,49 +1,73 @@
 # Delta Twin Component: Fire Weather Index forecast
 
-This document describes a Delta Twin component that calculates and plots Fire Weather Index (FWI) forecast data as a processing service.
+This Delta Twin component plots Fire Weather Index (FWI) forecast data as a processing service.
 
-## Overview
+The most recent fire risk forecast data is taken from the [MSG fire risk map](https://data.destination-earth.eu/data-portfolio/EO.EUM.DAT.MSG.LSA-FRM) and then plotted as a png. The Delta Twin component relies on the HDA (Harmonized Data Access) service.
 
-**Data inputs**
-- [MSG fire risk map](https://data.destination-earth.eu/data-portfolio/EO.EUM.DAT.MSG.LSA-FRM)
+## Workflow
 
-**Services**
-- HDA
-- Delta Twin
+The workflow is defined in [workflow.yml](workflow.yml) and wires workflow inputs to the model and then to the component output declared in [manifest.json](manifest.json).
 
-**Outputs**
-- Regular fire weather index plots over some AOI
-- Published delta twin component
-- Tutorial document
+The workflow defines the graph that connects inputs to the model and then to the output:
 
-## Building a Delta Twin component using HDA
+- `user` and `password` nodes reference `inputs.user` and `inputs.password`.
+- The `fwi` node references `models.fwi-calculator`.
+- The `plot` node references `outputs.fwi-plot`.
 
-### Data
+Edges connect the inputs to the model’s input ports and connect the model’s output port to the output node. The important wiring is:
 
-Find the collection ID via the UI. The key identifiers are:
+```yaml
+  - from:
+      id: fwi
+      port: fwi-plot
+    to:
+      id: plot
+```
 
+This matches the output name declared in the model definition and makes the generated PNG available as the component output.
+
+| **Node** | **Kind** | **Description** |
+| -------- | -------- | --------------- |
+| user | input | DESP auth username passed to the model as the first CLI argument (`user`). |
+| password | input | DESP auth password passed to the model as the second CLI argument (`password`). |
+| fwi | model | The Python model that searches the HDA STAC catalog, downloads an MSG fire risk product, and generates PNG plot(s). |
+| plot | output | The output node wired to `outputs.fwi-plot`, which captures the PNG(s) produced by the model. |
+
+## Steps to build the component
+
+### Local testing of the model
+
+The model is implemented in [models/fwi_calculator/fwi.py](models/fwi_calculator/fwi.py) and expects two CLI arguments.
+
+[models/fwi_calculator/fwi.py](models/fwi_calculator/fwi.py) expects two CLI arguments: `user` and `password`. These are used to set `DESPAUTH_USER` and `DESPAUTH_PASSWORD` before calling `destinepyauth.get_token()`.
+
+The key identifiers for data access are:
 ```
 HDA_STAC_ENDPOINT="https://hda.data.destination-earth.eu/stac/v2"
 COLLECTION_ID = "EO.EUM.DAT.MSG.LSA-FRM"
 ```
 
-Variables
+To install the Python dependencies locally:
 
-### AOI
-
-The AOI used here is the Cobières Massif, a region in France that [recently suffered from wild fire](https://en.wikipedia.org/wiki/2025_Corbi%C3%A8res_Massif_wildfire).
-
-```
-bbox = [2.10, 42.65, 3.25, 43.35]
+```shell
+pip install -r models/fwi_calculator/requirements.txt
 ```
 
-## Creating a Delta Twin component locally
+To run the model locally:
+
+```shell
+python models/fwi_calculator/fwi.py <username> <password>
+```
+
+The `glob: "fwi.png"` in the model output captures the output plot from the model and exposes it as the `fwi-plot` output defined in [manifest.json](manifest.json).
+
+### Creating a Delta Twin component locally
 
 ### inputs.json
 
 All we need as inputs are DESP auth credentials:
 
-```
+```json
 {
   "user": {
     "type": "string",
@@ -83,40 +107,30 @@ There is a known issue: the CLI cannot decrypt `secret` values from `inputs.json
 
 ### Run locally
 
-```
+```shell
 deltatwin run start_local -i inputs-djp.json
 ```
 
+When running a component locally, input parameter(s) can be provided via a JSON file.
+
 ### Publish and run
 
-```
+```shell
 deltatwin component publish -t fwi 0.1
 ```
 
 Then:
 
-```
+```shell
 deltatwin run start fwi-calc -i inputs.json
 ```
 
 If the output is missing, check the workflow wiring in [workflow.yml](workflow.yml). The output node must reference `outputs.fwi-plot` and the edge must connect the `fwi` node output port `fwi-plot` to the `plot` node.
 
-### workflow.yml
-
-The workflow defines the graph that connects inputs to the model and then to the output:
-
-- `user` and `password` nodes reference `inputs.user` and `inputs.password`.
-- The `fwi` node references `models.fwi-calculator`.
-- The `plot` node references `outputs.fwi-plot`.
-
-Edges connect the inputs to the model’s input ports and connect the model’s output port to the output node. The important wiring is:
-
-`from: id: fwi, port: fwi-plot` → `to: id: plot`
-
-This matches the output name declared in the model definition and makes the generated PNG available as the component output.
-
 ### How the script maps to inputs/outputs
 
-[models/fwi_calculator/fwi.py](models/fwi_calculator/fwi.py) expects two CLI arguments: `user` and `password`. These are used to set `DESPAUTH_USER` and `DESPAUTH_PASSWORD` before calling `destinepyauth.get_token()`.
+The component exposes two inputs and one output in [manifest.json](manifest.json):
 
-The script writes PNG output files to a run-specific folder under `.data/` and logs their filenames. The `glob: "*.png"` in the model output captures these files and exposes them as the `fwi-plot` output defined in [manifest.json](manifest.json).
+- `inputs.user` is a `string` because local CLI runs accept plaintext values.
+- `inputs.password` is a `secret` because credentials should not be stored in plain text when running on the service.
+- `outputs.fwi-plot` is a `Data` output and is wired to any PNG generated by the model.
