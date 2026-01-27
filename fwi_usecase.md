@@ -1,15 +1,17 @@
-# FWI use case
+# Delta Twin Component: Fire Weather Index forecast
 
-The goal is to create a processing service to calculate and plot Fire Weather Index (FWI) forecast data.
+This document describes a Delta Twin component that calculates and plots Fire Weather Index (FWI) forecast data as a processing service.
 
-Data inputs:
+## Overview
+
+**Data inputs**
 - [MSG fire risk map](https://data.destination-earth.eu/data-portfolio/EO.EUM.DAT.MSG.LSA-FRM)
 
-Services:
+**Services**
 - HDA
 - Delta Twin
 
-Outputs:
+**Outputs**
 - Regular fire weather index plots over some AOI
 - Published delta twin component
 - Tutorial document
@@ -18,15 +20,19 @@ Outputs:
 
 ### Data
 
-Find the collection ID via the UI
+Find the collection ID via the UI. The key identifiers are:
+
 ```
 HDA_STAC_ENDPOINT="https://hda.data.destination-earth.eu/stac/v2"
 COLLECTION_ID = "EO.EUM.DAT.MSG.LSA-FRM"
 ```
+
 Variables
 
 ### AOI
-Cobières Massif is a region in France that [recently suffered from wild fire](https://en.wikipedia.org/wiki/2025_Corbi%C3%A8res_Massif_wildfire).
+
+The AOI used here is the Cobières Massif, a region in France that [recently suffered from wild fire](https://en.wikipedia.org/wiki/2025_Corbi%C3%A8res_Massif_wildfire).
+
 ```
 bbox = [2.10, 42.65, 3.25, 43.35]
 ```
@@ -35,7 +41,7 @@ bbox = [2.10, 42.65, 3.25, 43.35]
 
 ### inputs.json
 
-All we need as inputs are DESP auth credentials
+All we need as inputs are DESP auth credentials:
 
 ```
 {
@@ -49,9 +55,10 @@ All we need as inputs are DESP auth credentials
   }
 }
 ```
+
 ### manifest.json
 
-guide [here](https://deltatwin.destine.eu/docs/tutorials/basic/tutorial_basic_step3)
+Follow the guide [here](https://deltatwin.destine.eu/docs/tutorials/basic/tutorial_basic_step3).
 
 - Fill in ownership details and name at the top
 - No resources - these are more for connecting inputs (not explained well in docs)
@@ -74,24 +81,29 @@ which maps the workflow inputs directly to the CLI arguments consumed by [models
 
 There is a known issue: the CLI cannot decrypt `secret` values from `inputs.json`. If you set `type: "secret"` in the inputs file, the run fails with a `fromhex()` error. For local runs, keep both inputs as `string` in the JSON file (see [inputs-djp.json](inputs-djp.json)). For service runs, publish the component and pass the secret via the UI, which handles encryption for `secret` inputs.
 
-### run locally
+### Run locally
+
 ```
 deltatwin run start_local -i inputs-djp.json
 ```
 
-### publish and run
+### Publish and run
+
 ```
 deltatwin component publish -t fwi 0.1
 ```
-then
+
+Then:
+
 ```
 deltatwin run start fwi-calc -i inputs.json
 ```
+
 If the output is missing, check the workflow wiring in [workflow.yml](workflow.yml). The output node must reference `outputs.fwi-plot` and the edge must connect the `fwi` node output port `fwi-plot` to the `plot` node.
 
 ### workflow.yml
 
-The workflow defines the graph that connects inputs to the model and then to the output.
+The workflow defines the graph that connects inputs to the model and then to the output:
 
 - `user` and `password` nodes reference `inputs.user` and `inputs.password`.
 - The `fwi` node references `models.fwi-calculator`.
