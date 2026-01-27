@@ -106,7 +106,7 @@ The outputs of the component are stored in a temporary directory associated to t
 
 The resulting file `fwi.png` contains a plot similar to the one below.
 
-![plot](assets/fwi.png){ width=75%}
+![plot](assets/fwi.png)
 
 ### Publish component to the DeltaTwin service
 
@@ -166,6 +166,6 @@ Once the component has been published to the service, it is ready to use. To run
 - a menu should appear as shown below for you to input your DESP credentials
 - press `Start Run`
 
-![plot](assets/run_screenshot.png){ width=75%}
+![plot](assets/run_screenshot.png)
 
 You can monitor the status of the run by selecting `Runs` from the left hand menu.
