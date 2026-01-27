@@ -20,7 +20,7 @@
       "description": "DestinE Service Platform User Credentials."
     },
     "password": {
-      "type": "string",
+      "type": "secret",
       "description": "DestinE Service Platform Password Credentials."
     }
   },
@@ -74,7 +74,7 @@
           "type": "string"
         },
         "password": {
-          "type": "string"
+          "type": "secret"
         }
       },
       "outputs": {
