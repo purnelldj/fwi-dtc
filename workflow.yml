@@ -6,7 +6,7 @@ nodes:
     ref: inputs.password
 
   - id: fwi
-    ref: models.fwi-calculator
+    ref: models.fwi
 
   - id: plot
     ref: outputs.fwi-plot
