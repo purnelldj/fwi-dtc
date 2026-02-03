@@ -1,3 +1,5 @@
 .resources
 .secrets
 .data
+.delta
+__pycache__

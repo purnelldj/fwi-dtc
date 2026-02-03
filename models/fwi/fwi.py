@@ -9,8 +9,10 @@ import xarray as xr
 import matplotlib.pyplot as plt
 from matplotlib.colors import BoundaryNorm, ListedColormap
 from pathlib import Path
+from pyproj import CRS
 import os
 import sys
+from rasterio.transform import from_origin
 
 HDA_STAC_ENDPOINT="https://hda.data.destination-earth.eu/stac/v2"
 COLLECTION_ID = "EO.EUM.DAT.MSG.LSA-FRM"
@@ -19,6 +21,7 @@ DT_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 log = logging.getLogger("FWI")
 log.setLevel(logging.INFO)
+
 
 def _get_auth_headers():
     access_token = get_token("hda").access_token
@@ -97,6 +100,100 @@ def _extract_zip(zip_filename: str, out_path: Path) -> str:
     return h5_file
 
 
+def _reproject_geos(ds: xr.Dataset):
+    # # rename dims
+    ds = ds.rename({"phony_dim_1": "x", "phony_dim_0": "y"})
+
+    CFAC = ds.attrs["CFAC"]
+    LFAC = ds.attrs["LFAC"]
+    COFF = ds.attrs["COFF"]
+    LOFF = ds.attrs["LOFF"]
+
+    # Satellite height above ellipsoid (MSG)
+    H = 35786023.0
+
+    # Convert CFAC/LFAC from deg^-1 to rad^-1 (this is the missing ~57.2958 factor)
+    deg_per_rad = 180.0 / np.pi
+    CFAC_rad = CFAC * deg_per_rad
+    LFAC_rad = LFAC * deg_per_rad
+
+    # Scan-angle step (radians per pixel): 2^16 / CFAC_rad
+    dx_ang = (2**16) / CFAC_rad
+    dy_ang = (2**16) / LFAC_rad
+
+    # Convert scan-angle step to PROJ geos meters using: proj_coord = H * scan_angle
+    dx = H * dx_ang
+    dy = H * dy_ang
+
+    # Upper-left corner in projected meters
+    x0 = -COFF * dx
+    y0 =  LOFF * dy
+
+    transform = from_origin(x0, y0, dx, dy)
+
+    crs = CRS.from_proj4(
+        "+proj=geos +h=35786023 +lon_0=0 "
+        "+a=6378137 +b=6356752.31414 +sweep=x +units=m +no_defs"
+    )
+
+    out = {}
+    for var in ["FWI", "Risk"]:
+
+        da = ds[var].rio.set_spatial_dims("x", "y")
+        da = da.rio.write_crs(crs)
+        da = da.rio.write_transform(transform)
+
+        fill = da.attrs.get("_FillValue", -32768)
+        da = da.rio.write_nodata(fill)
+
+        da = da.rio.reproject("EPSG:3035")   # Europe LAEA
+
+        # all europe
+        # bbox = {
+        #     "minx": 250000,
+        #     "miny": 1400000,
+        #     "maxx": 7500000,
+        #     "maxy": 5500000,
+        # }
+        # Italy
+        bbox = {
+            "minx": 4000000,
+            "miny": 1400000,
+            "maxx": 5200000,
+            "maxy": 2600000,
+        }
+
+        da = da.rio.clip_box(
+            minx=bbox["minx"],
+            miny=bbox["miny"],
+            maxx=bbox["maxx"],
+            maxy=bbox["maxy"],
+        )
+
+        da = da.where(da != fill).astype("float32")
+        # 1) Force 2D (drop band/time/etc. if present)
+        da = da.squeeze(drop=True)
+
+        # 2) Force dims to be exactly ("y", "x")
+        # (if your dims are already y/x, this is a no-op)
+        if da.dims != ("y", "x"):
+            da = da.rename({da.dims[-2]: "y", da.dims[-1]: "x"})
+
+        t = da.rio.transform()
+        ny, nx = da.shape
+
+        x = t.c + (np.arange(nx) + 0.5) * t.a      # pixel centers
+        y = t.f + (np.arange(ny) + 0.5) * t.e
+
+        da = da.assign_coords(x=("x", x), y=("y", y))
+
+        # da.plot()
+        # plt.show()
+
+        out[var] = da
+        
+    return out["FWI"], out["Risk"]
+
 def _process_and_plot_fwi(h5_file: Path, plot_index: int) -> None:
     """Read HDF5, extract FWI and plot with country borders"""
     # Create plot
@@ -115,20 +212,21 @@ def _process_and_plot_fwi(h5_file: Path, plot_index: int) -> None:
     risk_norm = BoundaryNorm(risk_bounds, risk_cmap.N)
 
     # read and prepare dataset
-    ds = xr.open_dataset(h5_file)
-    fwi = xr.where(ds.FWI == -8000, np.nan, ds.FWI)
-    fwi = xr.DataArray(np.flipud(fwi), dims=fwi.dims)
-    fwi = xr.where(fwi < 0, np.nan, fwi)
-    # risk
-    risk = xr.where(ds.Risk == -8000, np.nan, ds.Risk)
-    risk = xr.DataArray(np.flipud(risk), dims=risk.dims)
-    risk = xr.where(risk < 0, np.nan, risk)
+    ds = xr.open_dataset(h5_file, engine="h5netcdf", phony_dims="sort")
+    fwi, risk = _reproject_geos(ds)
+    # print(fwi)
+    # print(risk)
+    # exit()
+    fwi = xr.where(fwi == -8000, np.nan, fwi)
+    risk = xr.where(risk == -8000, np.nan, risk)
+
+    # get forecast_id for titles
+    forecast_id = str(h5_file).split("_")[-3]
 
     # plot
-    _, axes = plt.subplots(2, 1, figsize=(8, 10))
+    _, axes = plt.subplots(1, 2, figsize=(12, 5))
 
     fwi.plot(ax=axes[0], vmin=0, cmap="Oranges", cbar_kwargs={'label': ''})
-    forecast_id = str(h5_file).split("_")[-3]
     axes[0].set_title(f'Forecast {forecast_id}: Fire Weather Index')
 
     risk_plot = risk.plot(
@@ -144,7 +242,7 @@ def _process_and_plot_fwi(h5_file: Path, plot_index: int) -> None:
         },
     )
     risk_plot.colorbar.set_ticklabels(['Low', 'Moderate', 'High', 'Very High', 'Extreme'])
-    axes[1].set_title('Risk')
+    axes[1].set_title(f'Forecast {forecast_id}: Risk')
 
     plt.tight_layout()
     plt.savefig(output_file, dpi=300, bbox_inches='tight')
@@ -196,6 +294,8 @@ def main(user: str, password: str, out_path: Path = Path("./.delta")):
         
         # Process and plot FWI
         _process_and_plot_fwi(h5_file, i)
+
+        exit()
         
 
 if __name__ == "__main__":

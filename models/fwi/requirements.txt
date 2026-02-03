@@ -4,3 +4,4 @@ xarray
 matplotlib
 cartopy
 h5
+rioxarray
