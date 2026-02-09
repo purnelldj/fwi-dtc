@@ -294,7 +294,7 @@ def _process_and_plot_fwi(h5_file: Path, plot_index: int) -> None:
     risk_plot.colorbar.set_ticklabels(['Low', 'Moderate', 'High', 'Very High', 'Extreme'])
     axes[1].add_feature(borders, linewidth=1)
     axes[1].add_feature(coastlines, linewidth=1)
-    axes[1].set_title(f"MSG Fire risk at {forecast_descr}")
+    axes[1].set_title(f"MSG Fire Risk at {forecast_descr}")
 
     plt.tight_layout()
     plt.savefig(output_file, dpi=300, bbox_inches='tight')
