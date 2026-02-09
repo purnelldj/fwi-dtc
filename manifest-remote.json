@@ -26,25 +26,9 @@
   },
 
   "outputs": {
-    "fwi-plot0": {
+    "fwi-plot": {
       "type": "Data",
-      "description": "FWI plot with colormap (PNG file)"
-    },
-    "fwi-plot1": {
-      "type": "Data",
-      "description": "FWI plot with colormap (PNG file)"
-    },
-    "fwi-plot2": {
-      "type": "Data",
-      "description": "FWI plot with colormap (PNG file)"
-    },
-    "fwi-plot3": {
-      "type": "Data",
-      "description": "FWI plot with colormap (PNG file)"
-    },
-    "fwi-plot4": {
-      "type": "Data",
-      "description": "FWI plot with colormap (PNG file)"
+      "description": "FWI and risk forecast as GIF"
     }
   },
 
@@ -94,25 +78,9 @@
         }
       },
       "outputs": {
-        "fwi-plot0": {
+        "fwi-plot": {
           "type": "Data",
-          "glob": "fwi0.png"
-        },
-        "fwi-plot1": {
-          "type": "Data",
-          "glob": "fwi1.png"
-        },
-        "fwi-plot2": {
-          "type": "Data",
-          "glob": "fwi2.png"
-        },
-        "fwi-plot3": {
-          "type": "Data",
-          "glob": "fwi3.png"
-        },
-        "fwi-plot4": {
-          "type": "Data",
-          "glob": "fwi4.png"
+          "glob": "fwi-forecast.gif"
         }
       }
     }

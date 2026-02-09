@@ -8,21 +8,9 @@ nodes:
   - id: fwi
     ref: models.fwi
 
-  - id: plot0
-    ref: outputs.fwi-plot0
+  - id: plot
+    ref: outputs.fwi-plot
   
-  - id: plot1
-    ref: outputs.fwi-plot1
-
-  - id: plot2
-    ref: outputs.fwi-plot2
-
-  - id: plot3
-    ref: outputs.fwi-plot3
-
-  - id: plot4
-    ref: outputs.fwi-plot4
-
 edges:
 
   - from:
@@ -39,31 +27,6 @@ edges:
 
   - from:
       id: fwi
-      port: fwi-plot0
+      port: fwi-plot
     to:
-      id: plot0
-
-  - from:
-      id: fwi
-      port: fwi-plot1
-    to:
-      id: plot1
-
-  - from:
-      id: fwi
-      port: fwi-plot2
-    to:
-      id: plot2
-
-  - from:
-      id: fwi
-      port: fwi-plot3
-    to:
-      id: plot3
-
-  - from:
-      id: fwi
-      port: fwi-plot4
-    to:
-      id: plot4
-
+      id: plot
