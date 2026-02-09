@@ -3,21 +3,22 @@ import numpy as np
 import requests
 import zipfile
 import datetime
-from destinepyauth import get_token
-from tqdm import tqdm
-import xarray as xr
-import matplotlib.pyplot as plt
-from matplotlib.colors import BoundaryNorm, ListedColormap
-import matplotlib.cm as cm
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
 from pathlib import Path
-from pyproj import CRS
 import os
 import sys
-from rasterio.transform import from_origin
-from PIL import Image
 import time
+
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+from destinepyauth import get_token
+import matplotlib.pyplot as plt
+from matplotlib.colors import BoundaryNorm, ListedColormap
+from PIL import Image
+from pyproj import CRS
+from rasterio.transform import from_origin
+from tqdm import tqdm
+import xarray as xr
+import rioxarray
 
 HDA_STAC_ENDPOINT="https://hda.data.destination-earth.eu/stac/v2"
 COLLECTION_ID = "EO.EUM.DAT.MSG.LSA-FRM"
@@ -221,9 +222,6 @@ def _reproject_geos(ds: xr.Dataset):
 
         da = da.assign_coords(x=("x", x), y=("y", y))
 
-        # da.plot()
-        # plt.show()
-
         out[var] = da
         
     return out["FWI"], out["Risk"]
@@ -266,7 +264,7 @@ def _process_and_plot_fwi(h5_file: Path, plot_index: int) -> None:
     borders = cfeature.BORDERS.with_scale("50m")
     coastlines = cfeature.COASTLINE.with_scale("50m")
 
-    fwi_cmap = cm.get_cmap("YlOrRd", 5)
+    fwi_cmap = plt.get_cmap("YlOrRd", 5)
 
     fwi.plot(
         ax=axes[0],
@@ -304,10 +302,7 @@ def _process_and_plot_fwi(h5_file: Path, plot_index: int) -> None:
     plt.close()
 
 
-def main(user: str, password: str, out_path: Path = Path("./.delta")):
-
-    os.environ['DESPAUTH_USER'] = user
-    os.environ['DESPAUTH_PASSWORD'] = password
+def main(out_path: Path = Path("./.delta")):
 
     # search past 24 hours
     dt_now = datetime.datetime.now(datetime.timezone.utc)
@@ -359,13 +354,16 @@ if __name__ == "__main__":
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (3, 1):
         log.info("Usage: python fwi.py <username> <password>")
         sys.exit(1)
     
-    username = sys.argv[1]
-    password = sys.argv[2]
+    if len(sys.argv) > 1:
+        username = sys.argv[1]
+        password = sys.argv[2]
+        os.environ['DESPAUTH_USER'] = username
+        os.environ['DESPAUTH_PASSWORD'] = password
     try:
-        main(username, password)
+        main()
     except Exception as e:
         log.info(f"Failed to run fwi.py:\n {e}")
