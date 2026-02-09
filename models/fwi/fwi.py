@@ -8,11 +8,14 @@ from tqdm import tqdm
 import xarray as xr
 import matplotlib.pyplot as plt
 from matplotlib.colors import BoundaryNorm, ListedColormap
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 from pathlib import Path
 from pyproj import CRS
 import os
 import sys
 from rasterio.transform import from_origin
+from PIL import Image
 
 HDA_STAC_ENDPOINT="https://hda.data.destination-earth.eu/stac/v2"
 COLLECTION_ID = "EO.EUM.DAT.MSG.LSA-FRM"
@@ -21,6 +24,23 @@ DT_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 log = logging.getLogger("FWI")
 log.setLevel(logging.INFO)
+
+
+def _create_gif(png_files: list[Path], out_gif: Path, frame_duration_s: float = 1) -> None:
+    existing = [p for p in png_files if p.exists()]
+    if not existing:
+        raise FileNotFoundError("No PNG frames found to build GIF")
+
+    frames = [Image.open(p).convert("RGBA") for p in existing]
+    duration_ms = int(frame_duration_s * 1000)
+    frames[0].save(
+        out_gif,
+        save_all=True,
+        append_images=frames[1:],
+        duration=duration_ms,
+        loop=0,
+    )
+    log.info(f"GIF saved: {out_gif}")
 
 
 def _get_auth_headers():
@@ -214,25 +234,41 @@ def _process_and_plot_fwi(h5_file: Path, plot_index: int) -> None:
     # read and prepare dataset
     ds = xr.open_dataset(h5_file, engine="h5netcdf", phony_dims="sort")
     fwi, risk = _reproject_geos(ds)
-    # print(fwi)
-    # print(risk)
-    # exit()
     fwi = xr.where(fwi == -8000, np.nan, fwi)
     risk = xr.where(risk == -8000, np.nan, risk)
 
     # get forecast_id for titles
     forecast_id = str(h5_file).split("_")[-3]
+    forecast_offset = int(forecast_id[-3:])
+    forecast_dt = datetime.datetime.strptime(str(h5_file).split("_")[-1], "%Y%m%d%H%M")
+    forecast_dt = forecast_dt.strftime("%Y-%m-%d, %H%M")
+    forecast_descr = f"{forecast_dt} UTC +{forecast_offset}h"
+
 
     # plot
-    _, axes = plt.subplots(1, 2, figsize=(12, 5))
+    plot_crs = ccrs.epsg(3035)
+    _, axes = plt.subplots(1, 2, figsize=(12, 5), subplot_kw={"projection": plot_crs})
 
-    fwi.plot(ax=axes[0], vmin=0, cmap="Oranges", cbar_kwargs={'label': ''})
-    axes[0].set_title(f'Forecast {forecast_id}: Fire Weather Index')
+    borders = cfeature.BORDERS.with_scale("50m")
+    coastlines = cfeature.COASTLINE.with_scale("50m")
+
+    fwi.plot(
+        ax=axes[0],
+        vmin=0,
+        vmax=4000,
+        cmap="Oranges",
+        transform=plot_crs,
+        cbar_kwargs={"label": ""},
+    )
+    axes[0].add_feature(borders, linewidth=1)
+    axes[0].add_feature(coastlines, linewidth=1)
+    axes[0].set_title(f"Fire Weather Index at {forecast_descr}")
 
     risk_plot = risk.plot(
         ax=axes[1],
         cmap=risk_cmap,
         norm=risk_norm,
+        transform=plot_crs,
         cbar_kwargs={
             'label': '',
             'ticks': [1, 2, 3, 4, 5],
@@ -242,7 +278,9 @@ def _process_and_plot_fwi(h5_file: Path, plot_index: int) -> None:
         },
     )
     risk_plot.colorbar.set_ticklabels(['Low', 'Moderate', 'High', 'Very High', 'Extreme'])
-    axes[1].set_title(f'Forecast {forecast_id}: Risk')
+    axes[1].add_feature(borders, linewidth=1)
+    axes[1].add_feature(coastlines, linewidth=1)
+    axes[1].set_title(f"Risk at {forecast_descr}")
 
     plt.tight_layout()
     plt.savefig(output_file, dpi=300, bbox_inches='tight')
@@ -295,8 +333,9 @@ def main(user: str, password: str, out_path: Path = Path("./.delta")):
         # Process and plot FWI
         _process_and_plot_fwi(h5_file, i)
 
-        exit()
-        
+    # Build animated GIF from generated plots (0.5s per frame)
+    frames = [Path(f"fwi{i}.png") for i in range(len(results["features"]))]
+    _create_gif(frames, Path("fwi_forecast.gif"), frame_duration_s=1)
 
 if __name__ == "__main__":
     logging.basicConfig(
