@@ -38,7 +38,14 @@
       "type": "python",
       "parameters": {
         "pythonVersion": "3.11",
-        "aptRequirements": [],
+        "aptRequirements": [
+          {
+            "name": "libexpat1"
+          },
+          {
+            "name": "libexpat1-dev"
+          }
+        ],
         "pipRequirements": [
           {
             "name": "destinepyauth",
