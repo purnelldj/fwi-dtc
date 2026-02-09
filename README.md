@@ -6,6 +6,10 @@ The most recent fire risk forecast data is taken from the [MSG fire risk map](ht
 
 ## Workflow
 
+The component's workflow is the following:
+
+![workflow](assets/workflow.png)
+
 The workflow is defined in [workflow.yml](workflow.yml) and wires workflow inputs to the model and then to the component output declared in [manifest.json](manifest.json).
 
 The workflow defines the graph that connects inputs to the model and then to the output:
