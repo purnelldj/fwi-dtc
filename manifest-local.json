@@ -28,7 +28,7 @@
   "outputs": {
     "fwi-plot": {
       "type": "Data",
-      "description": "FWI plot with colormap (PNG file)"
+      "description": "FWI and risk forecast as GIF"
     }
   },
 
@@ -38,29 +38,42 @@
       "type": "python",
       "parameters": {
         "pythonVersion": "3.11",
-        "aptRequirements": [],
+        "aptRequirements": [
+          {
+            "name": "libexpat1"
+          },
+          {
+            "name": "libexpat1-dev"
+          }
+        ],
         "pipRequirements": [
           {
             "name": "destinepyauth",
             "version": "1.1.0"
           },
           {
-            "name": "tqdm"
-          },
-          {
-            "name": "xarray"
-          },
-          {
-            "name": "matplotlib"
-          },
-          {
             "name": "cartopy"
+          },
+          {
+            "name": "destinepyauth"
           },
           {
             "name": "h5"
           },
           {
             "name": "h5netcdf"
+          },
+          {
+            "name": "matplotlib"
+          },
+          {
+            "name": "pillow"
+          },
+          {
+            "name": "rioxarray"
+          },
+          {
+            "name": "tqdm"
           }
         ],
         "hardwareRequirements": {
@@ -80,7 +93,7 @@
       "outputs": {
         "fwi-plot": {
           "type": "Data",
-          "glob": "fwi.png"
+          "glob": "fwi_forecast.gif"
         }
       }
     }

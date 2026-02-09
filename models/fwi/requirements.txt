@@ -1,6 +1,8 @@
-destinepyauth
-tqdm
-xarray
-matplotlib
 cartopy
+destinepyauth
 h5
+h5netcdf
+matplotlib
+pillow
+rioxarray
+tqdm

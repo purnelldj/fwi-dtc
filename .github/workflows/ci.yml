@@ -1,0 +1,33 @@
+name: default
+
+on:
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+
+  build_test:
+    name: build_test
+    runs-on: ubuntu-latest
+    env:
+      DESPAUTH_USER: ${{ secrets.DESPAUTH_USER }}
+      DESPAUTH_PASSWORD: ${{ secrets.DESPAUTH_PASSWORD }}
+    steps:
+    - name: Clone repo
+      uses: actions/checkout@v6
+    - name: Set up python
+      uses: actions/setup-python@v6
+      with:
+        python-version: 3.11
+        cache: 'pip'
+    - name: Install dependencies
+      run: pip install -r models/fwi/requirements.txt
+    - name: Create forecast
+      run: python models/fwi/fwi.py
+    - name: Verify forecast output
+      run: |
+        if [ ! -f fwi_forecast.gif ]; then
+          echo "Error: fwi_forecast.gif was not created"
+          exit 1
+        fi
+        echo "Success: fwi_forecast.gif created"
