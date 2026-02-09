@@ -8,6 +8,7 @@ from tqdm import tqdm
 import xarray as xr
 import matplotlib.pyplot as plt
 from matplotlib.colors import BoundaryNorm, ListedColormap
+import matplotlib.cm as cm
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from pathlib import Path
@@ -252,7 +253,7 @@ def _process_and_plot_fwi(h5_file: Path, plot_index: int) -> None:
 
     # get forecast_id for titles
     forecast_id = str(h5_file).split("_")[-3]
-    forecast_offset = int(forecast_id[-3:])
+    forecast_offset = forecast_id[-3:]
     forecast_dt = datetime.datetime.strptime(str(h5_file).split("_")[-1], "%Y%m%d%H%M")
     forecast_dt = forecast_dt.strftime("%Y-%m-%d, %H%M")
     forecast_descr = f"{forecast_dt} Z +{forecast_offset}h"
@@ -265,11 +266,13 @@ def _process_and_plot_fwi(h5_file: Path, plot_index: int) -> None:
     borders = cfeature.BORDERS.with_scale("50m")
     coastlines = cfeature.COASTLINE.with_scale("50m")
 
+    fwi_cmap = cm.get_cmap("YlOrRd", 5)
+
     fwi.plot(
         ax=axes[0],
         vmin=0,
-        vmax=4000,
-        cmap="Oranges",
+        vmax=5000,
+        cmap=fwi_cmap,
         transform=plot_crs,
         cbar_kwargs={"label": ""},
     )
@@ -293,7 +296,7 @@ def _process_and_plot_fwi(h5_file: Path, plot_index: int) -> None:
     risk_plot.colorbar.set_ticklabels(['Low', 'Moderate', 'High', 'Very High', 'Extreme'])
     axes[1].add_feature(borders, linewidth=1)
     axes[1].add_feature(coastlines, linewidth=1)
-    axes[1].set_title(f"MSG  Fire risk at {forecast_descr}")
+    axes[1].set_title(f"MSG Fire risk at {forecast_descr}")
 
     plt.tight_layout()
     plt.savefig(output_file, dpi=300, bbox_inches='tight')
