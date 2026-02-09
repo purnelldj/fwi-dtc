@@ -45,22 +45,28 @@
             "version": "1.1.0"
           },
           {
-            "name": "tqdm"
-          },
-          {
-            "name": "xarray"
-          },
-          {
-            "name": "matplotlib"
-          },
-          {
             "name": "cartopy"
+          },
+          {
+            "name": "destinepyauth"
           },
           {
             "name": "h5"
           },
           {
             "name": "h5netcdf"
+          },
+          {
+            "name": "matplotlib"
+          },
+          {
+            "name": "pillow"
+          },
+          {
+            "name": "rioxarray"
+          },
+          {
+            "name": "tqdm"
           }
         ],
         "hardwareRequirements": {
@@ -80,7 +86,7 @@
       "outputs": {
         "fwi-plot": {
           "type": "Data",
-          "glob": "fwi-forecast.gif"
+          "glob": "fwi_forecast.gif"
         }
       }
     }
