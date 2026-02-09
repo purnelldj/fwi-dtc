@@ -83,7 +83,7 @@ To run it locally, you must first copy the relevant manifest file to the main `m
 
 ```shell
 cp manifest-local.json manifest.json
-deltatwin run start_local -i inputs-local.json
+deltatwin run start_local -i inputs.json
 ```
 
 If this is the first time running the command, it will also build the component’s Docker image. This process may take several minutes because the model requires GDAL packages and Python libraries to be installed in the image (see for instance manifest sections `models/[...]/pipRequirements` and `models/[...]/aptRequirements`).
