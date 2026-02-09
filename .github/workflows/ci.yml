@@ -24,3 +24,10 @@ jobs:
       run: pip install -r models/fwi/requirements.txt
     - name: Create forecast
       run: python models/fwi/fwi.py
+    - name: Verify forecast output
+      run: |
+        if [ ! -f fwi_forecast.gif ]; then
+          echo "Error: fwi_forecast.gif was not created"
+          exit 1
+        fi
+        echo "Success: fwi_forecast.gif created"

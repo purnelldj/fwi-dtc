@@ -366,4 +366,5 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        log.info(f"Failed to run fwi.py:\n {e}")
+        log.error(f"Failed to run fwi.py:\n {e}")
+        sys.exit(1)
