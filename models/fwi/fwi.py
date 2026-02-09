@@ -242,7 +242,7 @@ def _process_and_plot_fwi(h5_file: Path, plot_index: int) -> None:
     forecast_offset = int(forecast_id[-3:])
     forecast_dt = datetime.datetime.strptime(str(h5_file).split("_")[-1], "%Y%m%d%H%M")
     forecast_dt = forecast_dt.strftime("%Y-%m-%d, %H%M")
-    forecast_descr = f"{forecast_dt} UTC +{forecast_offset}h"
+    forecast_descr = f"{forecast_dt} Z +{forecast_offset}h"
 
 
     # plot
@@ -294,7 +294,7 @@ def main(user: str, password: str, out_path: Path = Path("./.delta")):
     os.environ['DESPAUTH_PASSWORD'] = password
 
     # search past 24 hours
-    dt_now = datetime.datetime.now(datetime.timezone.utc)
+    dt_now = datetime.datetime.now(datetime.timezone.Z)
     dt_yesterday = dt_now - datetime.timedelta(days=1)
     dt_now_str = dt_now.strftime(DT_FORMAT)
     dt_yesterday_str = dt_yesterday.strftime(DT_FORMAT)
