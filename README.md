@@ -2,7 +2,7 @@
 
 This DeltaTwin component plots Fire Weather Index (FWI) forecast data as a processing service.
 
-The most recent fire risk forecast data is taken from the [MSG fire risk map](https://data.destination-earth.eu/data-portfolio/EO.EUM.DAT.MSG.LSA-FRM) and then plotted as a png. The DeltaTwin component relies on the HDA (Harmonized Data Access) service.
+The most recent fire risk forecast data is taken from the [MSG fire risk map](https://data.destination-earth.eu/data-portfolio/EO.EUM.DAT.MSG.LSA-FRM) and then plotted as an animated GIF showing the 5-day forecast. The DeltaTwin component relies on the HDA (Harmonized Data Access) service.
 
 ## Workflow
 
@@ -30,31 +30,31 @@ This matches the output name declared in the model definition and makes the gene
 | -------- | -------- | --------------- |
 | user | input | DESP auth username passed to the model as the first CLI argument (`user`). |
 | password | input | DESP auth password passed to the model as the second CLI argument (`password`). |
-| fwi | model | The Python model that searches the HDA STAC catalog, downloads an MSG fire risk product, and generates PNG plot(s). |
-| plot | output | The output node wired to `outputs.fwi-plot`, which captures the PNG(s) produced by the model. |
+| fwi | model | The Python model that searches the HDA STAC catalog, downloads MSG fire risk products (5-day forecast), and generates an animated GIF with individual PNG frames. |
+| plot | output | The output node wired to `outputs.fwi-plot`, which captures the animated GIF produced by the model. |
 
 ## Steps to build the component
 
 ### Local testing of the model
 
-The model is implemented in [models/fwi_calculator/fwi.py](models/fwi_calculator/fwi.py) and expects two CLI arguments.
+The model is implemented in [models/fwi/fwi.py](models/fwi/fwi.py) and expects two CLI arguments.
 
-[models/fwi_calculator/fwi.py](models/fwi_calculator/fwi.py) expects two CLI arguments: `user` and `password`. These are used to set `DESPAUTH_USER` and `DESPAUTH_PASSWORD` before calling `destinepyauth.get_token()`.
+[models/fwi/fwi.py](models/fwi/fwi.py) expects two CLI arguments: `user` and `password`. These are used to set `DESPAUTH_USER` and `DESPAUTH_PASSWORD` before calling `destinepyauth.get_token()`.
 
 To install the Python dependencies locally:
 
 ```shell
-pip install -r models/fwi_calculator/requirements.txt
+pip install -r models/fwi/requirements.txt
 ```
 
 To run the model locally:
 
 ```shell
-python models/fwi_calculator/fwi.py <username> <password>
+python models/fwi/fwi.py <username> <password>
 ```
-If the run is successful, the logs will show
+If the run is successful, the logs will show individual PNG frames being created and finally:
 ```
-INFO FWI: Plot saved: fwi.png
+INFO FWI: GIF saved: fwi_forecast.gif
 ```
 
 ### Build the DeltaTwin component and run it locally
@@ -100,13 +100,13 @@ Inputs:
 Outputs:
      Output name | Type | Value/Basename                                                                                                          
     -------------+------+---------------------------------------------------------------------------                                              
-     fwi-plot    | Data | /path/to/home/.deltatwin/runs/<run_id>/fwi/fwi.png 
+     fwi-plot    | Data | /path/to/home/.deltatwin/runs/<run_id>/fwi/fwi_forecast.gif 
 ```
 The outputs of the component are stored in a temporary directory associated to the local run ID.
 
-The resulting file `fwi.png` contains a plot similar to the one below.
+The resulting file `fwi_forecast.gif` contains an animated 5-day forecast with frames similar to the example plot below.
 
-![plot](assets/fwi.png)
+![plot](assets/fwi_forecast_example.gif)
 
 ### Publish component to the DeltaTwin service
 
