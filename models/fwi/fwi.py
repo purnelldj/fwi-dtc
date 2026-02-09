@@ -16,6 +16,7 @@ import os
 import sys
 from rasterio.transform import from_origin
 from PIL import Image
+import time
 
 HDA_STAC_ENDPOINT="https://hda.data.destination-earth.eu/stac/v2"
 COLLECTION_ID = "EO.EUM.DAT.MSG.LSA-FRM"
@@ -48,7 +49,7 @@ def _get_auth_headers():
     return {"Authorization": f"Bearer {access_token}"}
 
 
-def _download_product(product: dict, auth_headers: dict, out_path: Path) -> None:
+def _download_product(product: dict, auth_headers: dict, out_path: Path) -> Path:
     log.info(f"\n=== Downloading: {product['id']} ===")
 
     # Get download URL from assets
@@ -62,21 +63,33 @@ def _download_product(product: dict, auth_headers: dict, out_path: Path) -> None
     log.info(f"Downloading full product to: {filename}")
     log.info(f"URL: {download_url}")
 
-    # Stream download with progress bar
-    response = requests.get(download_url, headers=auth_headers, stream=True)
-    response.raise_for_status()
+    # Simple retry mechanism for transient errors
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            # Stream download with progress bar
+            response = requests.get(download_url, headers=auth_headers, stream=True, timeout=30)
+            response.raise_for_status()
 
-    total_size = int(response.headers.get('content-length', 0))
+            total_size = int(response.headers.get('content-length', 0))
 
-    with tqdm(total=total_size, unit='B', unit_scale=True, desc=str(filename)) as progress_bar:
-        with open(filename, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-                    progress_bar.update(len(chunk))
+            with tqdm(total=total_size, unit='B', unit_scale=True, desc=str(filename)) as progress_bar:
+                with open(filename, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+                            progress_bar.update(len(chunk))
 
-    log.info(f"\nDownload complete: {filename}")
-    return filename
+            log.info(f"\nDownload complete: {filename}")
+            return filename
+            
+        except (requests.RequestException, OSError) as e:
+            if attempt < max_retries - 1:
+                log.warning(f"Download failed (attempt {attempt + 1}/{max_retries}): {e}. Retrying in 5s...")
+                time.sleep(5)
+            else:
+                log.error(f"Download failed after {max_retries} attempts")
+                raise
 
 
 def _print_search_results(response: requests.Response) -> None:
@@ -97,7 +110,7 @@ def _print_search_results(response: requests.Response) -> None:
         raise
 
 
-def _extract_zip(zip_filename: str, out_path: Path) -> str:
+def _extract_zip(zip_filename: Path, out_path: Path) -> Path:
     """Extract zip file and return the main HDF5 file path"""
     log.info(f"\n=== Extracting {zip_filename} ===")
     
@@ -262,7 +275,7 @@ def _process_and_plot_fwi(h5_file: Path, plot_index: int) -> None:
     )
     axes[0].add_feature(borders, linewidth=1)
     axes[0].add_feature(coastlines, linewidth=1)
-    axes[0].set_title(f"Fire Weather Index at {forecast_descr}")
+    axes[0].set_title(f"MSG Fire Weather Index at {forecast_descr}")
 
     risk_plot = risk.plot(
         ax=axes[1],
@@ -280,7 +293,7 @@ def _process_and_plot_fwi(h5_file: Path, plot_index: int) -> None:
     risk_plot.colorbar.set_ticklabels(['Low', 'Moderate', 'High', 'Very High', 'Extreme'])
     axes[1].add_feature(borders, linewidth=1)
     axes[1].add_feature(coastlines, linewidth=1)
-    axes[1].set_title(f"Risk at {forecast_descr}")
+    axes[1].set_title(f"MSG  Fire risk at {forecast_descr}")
 
     plt.tight_layout()
     plt.savefig(output_file, dpi=300, bbox_inches='tight')
@@ -294,7 +307,7 @@ def main(user: str, password: str, out_path: Path = Path("./.delta")):
     os.environ['DESPAUTH_PASSWORD'] = password
 
     # search past 24 hours
-    dt_now = datetime.datetime.now(datetime.timezone.Z)
+    dt_now = datetime.datetime.now(datetime.timezone.utc)
     dt_yesterday = dt_now - datetime.timedelta(days=1)
     dt_now_str = dt_now.strftime(DT_FORMAT)
     dt_yesterday_str = dt_yesterday.strftime(DT_FORMAT)
