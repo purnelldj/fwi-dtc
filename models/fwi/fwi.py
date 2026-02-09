@@ -30,6 +30,17 @@ log.setLevel(logging.INFO)
 
 
 def _create_gif(png_files: list[Path], out_gif: Path, frame_duration_s: float = 1) -> None:
+    """
+    Create an animated GIF from a sequence of PNG image files.
+    
+    Args:
+        png_files: List of paths to PNG files to combine into GIF
+        out_gif: Output path for the generated GIF file
+        frame_duration_s: Duration each frame displays in seconds (default: 1s)
+    
+    Raises:
+        FileNotFoundError: If no valid PNG files exist in the provided list
+    """
     existing = [p for p in png_files if p.exists()]
     if not existing:
         raise FileNotFoundError("No PNG frames found to build GIF")
@@ -47,11 +58,37 @@ def _create_gif(png_files: list[Path], out_gif: Path, frame_duration_s: float = 
 
 
 def _get_auth_headers():
+    """
+    Get authentication headers for HDA STAC API requests.
+    
+    Uses the destinepyauth library to obtain an access token and formats
+    it as a Bearer token authorization header.
+    
+    Returns:
+        dict: Headers dictionary with Authorization bearer token
+    """
     access_token = get_token("hda").access_token
     return {"Authorization": f"Bearer {access_token}"}
 
 
 def _download_product(product: dict, auth_headers: dict, out_path: Path) -> Path:
+    """
+    Download a Fire Weather Index product from the HDA catalog.
+    
+    Downloads the product ZIP file with retry logic and progress tracking.
+    
+    Args:
+        product: STAC product feature dictionary containing ID and assets
+        auth_headers: Authentication headers for the download request
+        out_path: Directory where the downloaded ZIP file will be saved
+    
+    Returns:
+        Path: Path to the downloaded ZIP file
+    
+    Raises:
+        KeyError: If downloadLink asset is not found in product
+        requests.RequestException: If download fails after all retries
+    """
     log.info(f"\n=== Downloading: {product['id']} ===")
 
     # Get download URL from assets
@@ -95,6 +132,18 @@ def _download_product(product: dict, auth_headers: dict, out_path: Path) -> Path
 
 
 def _print_search_results(response: requests.Response) -> None:
+    """
+    Log details of the STAC API search response.
+    
+    Displays the number of products found and basic information about each,
+    including product ID, datetime, and available assets.
+    
+    Args:
+        response: HTTP response from the STAC search endpoint
+    
+    Raises:
+        Exception: If response status code is not 200
+    """
     # print result info
     log.info(f"Status Code: {response.status_code}")
     if response.status_code == 200:
@@ -113,7 +162,22 @@ def _print_search_results(response: requests.Response) -> None:
 
 
 def _extract_zip(zip_filename: Path, out_path: Path) -> Path:
-    """Extract zip file and return the main HDF5 file path"""
+    """
+    Extract a ZIP archive and locate the HDF5 data file.
+    
+    Extracts all contents to a subdirectory and searches for HDF5 files
+    with extensions .h5, .hdf5, or files starting with 'S-LSA'.
+    
+    Args:
+        zip_filename: Path to the ZIP file to extract
+        out_path: Base directory where extraction subdirectory will be created
+    
+    Returns:
+        Path: Path to the extracted HDF5 data file
+    
+    Raises:
+        FileNotFoundError: If no HDF5 file is found after extraction
+    """
     log.info(f"\n=== Extracting {zip_filename} ===")
     
     extract_dir = out_path / Path(zip_filename).stem
@@ -136,6 +200,18 @@ def _extract_zip(zip_filename: Path, out_path: Path) -> Path:
 
 
 def _reproject_geos(ds: xr.Dataset):
+    """
+    Reproject FWI data from MSG GEOS projection to EPSG:3035 (Europe LAEA).
+    
+    Converts the native geostationary satellite projection to a Lambert Azimuthal
+    Equal Area projection suitable for European mapping, and clips to Italy region.
+    
+    Args:
+        ds: xarray Dataset containing FWI and Risk variables in GEOS projection
+    
+    Returns:
+        tuple: (fwi_array, risk_array) - Two xarray DataArrays reprojected to EPSG:3035
+    """
     # # rename dims
     ds = ds.rename({"phony_dim_1": "x", "phony_dim_0": "y"})
 
@@ -227,7 +303,20 @@ def _reproject_geos(ds: xr.Dataset):
     return out["FWI"], out["Risk"]
 
 def _process_and_plot_fwi(h5_file: Path, plot_index: int) -> None:
-    """Read HDF5, extract FWI and plot with country borders"""
+    """
+    Process HDF5 data file and generate FWI visualization plots.
+    
+    Reads the Fire Weather Index and Risk data, reprojects to European coordinates,
+    and creates a side-by-side visualization with country borders. The left panel
+    shows continuous FWI values, the right panel shows discrete risk classes.
+    
+    Args:
+        h5_file: Path to HDF5 file containing FWI data
+        plot_index: Index number for output filename (fwi{index}.png)
+    
+    Output:
+        Saves PNG file with dual-panel FWI/Risk visualization
+    """
     # Create plot
     output_file = f"fwi{plot_index}.png"
 
@@ -303,6 +392,26 @@ def _process_and_plot_fwi(h5_file: Path, plot_index: int) -> None:
 
 
 def main(out_path: Path = Path("./.delta")):
+    """
+    Main workflow to download, process, and visualize Fire Weather Index forecasts.
+    
+    This function:
+    1. Searches the HDA STAC catalog for FWI products from the past 24 hours
+    2. Downloads the 5-day forecast products (expects 5 results)
+    3. Extracts and processes each HDF5 file
+    4. Generates individual plot images for each forecast day
+    5. Combines all plots into an animated GIF
+    
+    Args:
+        out_path: Directory for temporary/output files (default: ./.delta)
+    
+    Output:
+        - Individual PNG files: fwi0.png through fwi4.png
+        - Animated GIF: fwi_forecast.gif
+    
+    Raises:
+        Exception: If no products found or unexpected number of products returned
+    """
 
     # search past 24 hours
     dt_now = datetime.datetime.now(datetime.timezone.utc)
@@ -349,20 +458,43 @@ def main(out_path: Path = Path("./.delta")):
     _create_gif(frames, Path("fwi_forecast.gif"), frame_duration_s=1)
 
 if __name__ == "__main__":
+    """
+    Command-line interface for Fire Weather Index forecast visualization.
+    
+    Usage:
+        python fwi.py                    # Use credentials from environment variables
+        python fwi.py <username> <password>  # Provide credentials as arguments
+    
+    Environment Variables:
+        DESPAUTH_USER: Username for Destination Earth HDA authentication
+        DESPAUTH_PASSWORD: Password for Destination Earth HDA authentication
+    
+    The script will:
+    - Authenticate with the Destination Earth HDA service
+    - Download the latest 5-day Fire Weather Index forecast
+    - Generate visualization plots for each forecast day
+    - Create an animated GIF showing the forecast progression
+    """
+    # Configure logging to show timestamped info messages
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
+    
+    # Parse command-line arguments for authentication
     if len(sys.argv) not in (3, 1):
         log.info("Usage: python fwi.py <username> <password>")
         sys.exit(1)
     
+    # Set authentication credentials from command-line args if provided
     if len(sys.argv) > 1:
         username = sys.argv[1]
         password = sys.argv[2]
         os.environ['DESPAUTH_USER'] = username
         os.environ['DESPAUTH_PASSWORD'] = password
+    
+    # Run the main workflow
     try:
         main()
     except Exception as e:
